@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lawyer Admin Panel</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f4f7fc;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+        h1 {
+            color: #0a2240;
+            font-size: 2em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        p.subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .lawyer-card {
+            background-color: #e9f0ff;
+            border-left: 5px solid #0a2240;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .lawyer-card.approved {
+            border-left: 5px solid #28a745;
+            background-color: #e0f2e8;
+        }
+        .lawyer-card.rejected {
+            border-left: 5px solid #dc3545;
+            background-color: #f8d7da;
+        }
+        .lawyer-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .lawyer-info-item strong {
+            color: #0a2240;
+        }
+        .lawyer-documents {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .document-link {
+            padding: 8px 12px;
+            background-color: #0a2240;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        .document-link:hover {
+            background-color: #1a426a;
+        }
+        .lawyer-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 10px;
+        }
+        .approve-btn, .reject-btn, .refresh-btn {
+            padding: 10px 15px;
+            font-weight: 600;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            color: white;
+        }
+        .approve-btn {
+            background-color: #28a745;
+        }
+        .approve-btn:hover {
+            background-color: #218838;
+        }
+        .reject-btn {
+            background-color: #dc3545;
+        }
+        .reject-btn:hover {
+            background-color: #c82333;
+        }
+        .refresh-btn {
+            background-color: #0a2240;
+            margin-top: 20px;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .refresh-btn:hover {
+            background-color: #1a426a;
+        }
+        #loading {
+            text-align: center;
+            font-style: italic;
+            color: #666;
+        }
+        #error-message {
+            color: #dc3545;
+            text-align: center;
+            margin-top: 20px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Lawyer Registration Review</h1>
+    <p class="subtitle">Review pending lawyer profiles and documents for approval.</p>
+    
+    <div id="loading">Loading pending lawyers...</div>
+    <div id="lawyers-list"></div>
+    <div id="error-message"></div>
+
+    <button id="refresh-button" class="refresh-btn">Refresh List</button>
+</div>
+
+<script>
+    // Set the IP address of your Flask backend.
+    // Make sure this matches your computer's local IP and port.
+    const API_URL = 'http://192.168.1.47:5001';
+
+    const lawyersList = document.getElementById('lawyers-list');
+    const loadingMessage = document.getElementById('loading');
+    const errorMessage = document.getElementById('error-message');
+    const refreshButton = document.getElementById('refresh-button');
+
+    // Function to fetch all lawyers with a 'pending' status
+    async function fetchPendingLawyers() {
+        lawyersList.innerHTML = '';
+        loadingMessage.style.display = 'block';
+        errorMessage.style.display = 'none';
+
+        try {
+            const response = await fetch(`${API_URL}/lawyers`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch lawyers from the server.');
+            }
+            const result = await response.json();
+
+            loadingMessage.style.display = 'none';
+
+            if (result.success && result.lawyers.length > 0) {
+                result.lawyers.forEach(lawyer => {
+                    if (lawyer.status === 'pending') {
+                        renderLawyerCard(lawyer);
+                    }
+                });
+            } else {
+                lawyersList.innerHTML = '<p style="text-align:center;">No pending lawyers found.</p>';
+            }
+
+        } catch (error) {
+            loadingMessage.style.display = 'none';
+            errorMessage.textContent = `Error: ${error.message}. Make sure your backend server is running and the IP address is correct.`;
+        }
+    }
+
+    // Function to render a single lawyer card
+    function renderLawyerCard(lawyer) {
+        const card = document.createElement('div');
+        card.className = `lawyer-card ${lawyer.status}`;
+        card.innerHTML = `
+            <h3>${lawyer.full_name}</h3>
+            <div class="lawyer-info">
+                <div class="lawyer-info-item"><strong>Email:</strong> ${lawyer.email}</div>
+                <div class="lawyer-info-item"><strong>Bar Enrollment No.:</strong> ${lawyer.bar_enrollment_number}</div>
+                <div class="lawyer-info-item"><strong>Practice City:</strong> ${lawyer.city_of_practice}</div>
+                <div class="lawyer-info-item"><strong>Practice State:</strong> ${lawyer.state_of_practice}</div>
+                <div class="lawyer-info-item"><strong>Enrollment Year:</strong> ${lawyer.enrollment_year}</div>
+            </div>
+            <div class="lawyer-documents">
+                <p><strong>Documents:</strong></p>
+                ${lawyer.profile_picture_path ? `<a href="${'file:///' + lawyer.profile_picture_path}" class="document-link" target="_blank">Profile Picture</a>` : ''}
+                ${lawyer.bar_id_card_path ? `<a href="${'file:///' + lawyer.bar_id_card_path}" class="document-link" target="_blank">Bar ID Card</a>` : ''}
+                ${lawyer.enrollment_certificate_path ? `<a href="${'file:///' + lawyer.enrollment_certificate_path}" class="document-link" target="_blank">Enrollment Certificate</a>` : ''}
+                ${lawyer.govt_id_path ? `<a href="${'file:///' + lawyer.govt_id_path}" class="document-link" target="_blank">Government ID</a>` : ''}
+            </div>
+            <div class="lawyer-actions">
+                <button class="approve-btn" onclick="updateStatus(${lawyer.id}, 'approved')">Approve</button>
+                <button class="reject-btn" onclick="updateStatus(${lawyer.id}, 'rejected')">Reject</button>
+            </div>
+        `;
+        lawyersList.appendChild(card);
+    }
+
+    // Function to send a PATCH request to update a lawyer's status
+    async function updateStatus(lawyerId, newStatus) {
+        if (!confirm(`Are you sure you want to ${newStatus} this lawyer?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/lawyers/${lawyerId}/status`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: newStatus }),
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                alert(result.message);
+                fetchPendingLawyers(); // Refresh the list after a successful update
+            } else {
+                alert('Failed to update status: ' + result.message);
+            }
+        } catch (error) {
+            alert('An error occurred: Could not connect to the server.');
+            console.error('Error:', error);
+        }
+    }
+
+    refreshButton.addEventListener('click', fetchPendingLawyers);
+
+    // Initial fetch on page load
+    window.onload = fetchPendingLawyers;
+</script>
+
+</body>
+</html>
